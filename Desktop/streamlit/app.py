@@ -5,11 +5,13 @@ import pickle
 from model import MLPTextGenerator
 import os
 
+# Paths
 folder_path = os.path.dirname(__file__)
-vocab_path = os.path.join(os.path.dirname(__file__), "vocab.pkl")
+vocab_path = os.path.join(folder_path, "vocab.pkl")
 
 @st.cache_resource
 def load_model_and_vocab(model_choice, embed_dim, hidden_dim, context_size):
+    # Load vocab
     with open(vocab_path, "rb") as f:
         data = pickle.load(f)
 
@@ -17,18 +19,21 @@ def load_model_and_vocab(model_choice, embed_dim, hidden_dim, context_size):
     idx_to_word = data["idx_to_word"]
     vocab = data["vocab"]
 
-    # Ensure <UNK> token exists
+    # Ensure <UNK> exists
     if "<UNK>" not in word_to_idx:
         unk_index = len(word_to_idx)
         word_to_idx["<UNK>"] = unk_index
         idx_to_word[unk_index] = "<UNK>"
+        vocab.append("<UNK>")  # Update vocab size
 
+    # Model paths
     model_paths = {
-        "Small": os.path.join(os.path.dirname(__file__), "holmes_small.pt"),
-        "Medium": os.path.join(os.path.dirname(__file__), "holmes_medium.pt"),
-        "Large": os.path.join(os.path.dirname(__file__), "holmes_large.pt")
+        "Small": os.path.join(folder_path, "holmes_small.pt"),
+        "Medium": os.path.join(folder_path, "holmes_medium.pt"),
+        "Large": os.path.join(folder_path, "holmes_large.pt")
     }
 
+    # Initialize model with correct vocab size
     model = MLPTextGenerator(len(vocab), embed_dim, hidden_dim, context_size)
 
     if model_choice in model_paths:
@@ -37,18 +42,19 @@ def load_model_and_vocab(model_choice, embed_dim, hidden_dim, context_size):
     model.eval()
     return model, word_to_idx, idx_to_word, vocab
 
-def words_to_indices(words, word_to_idx):
-    unk_idx = word_to_idx.get("<UNK>", 0)
-    return [word_to_idx.get(w, unk_idx) for w in words]
-
 def predict_next_words(model, input_text, word_to_idx, idx_to_word,
                        k=5, temperature=1.0, context_size=5):
+
     tokens = input_text.lower().split()
     tokens = tokens[-context_size:]
 
-    indices = words_to_indices(tokens, word_to_idx)
+    # Map unknown words to <UNK>
+    unk_index = word_to_idx.get("<UNK>", 0)
+    indices = [word_to_idx.get(w, unk_index) for w in tokens]
+
+    # Pad if needed
     if len(indices) < context_size:
-        indices = [word_to_idx.get("<UNK>", 0)] * (context_size - len(indices)) + indices
+        indices = [unk_index] * (context_size - len(indices)) + indices
 
     input_tensor = torch.tensor([indices], dtype=torch.long)
 
@@ -61,15 +67,17 @@ def predict_next_words(model, input_text, word_to_idx, idx_to_word,
 
         next_word = idx_to_word.get(next_idx, "<UNK>")
         generated.append(next_word)
+
         indices = indices[1:] + [next_idx]
         input_tensor = torch.tensor([indices], dtype=torch.long)
 
     return " ".join(generated)
 
+
 # Streamlit UI
 st.title("Sherlock Holmes Text Generator")
-st.sidebar.header("Model Settings")
 
+st.sidebar.header("Model Settings")
 model_choice = st.sidebar.selectbox(
     "Choose model variant:",
     ["Small", "Medium", "Large", "Personalized"]
@@ -93,6 +101,7 @@ temperature = st.sidebar.slider("Temperature (controls randomness)", 0.1, 2.0, 1
 random_seed = st.sidebar.number_input("Random Seed", min_value=0, max_value=9999, value=42)
 torch.manual_seed(random_seed)
 
+# Load model and vocab
 model, word_to_idx, idx_to_word, vocab = load_model_and_vocab(
     model_choice, embed_dim, hidden_dim, context_size
 )
