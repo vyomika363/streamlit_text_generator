@@ -19,12 +19,23 @@ def load_model_and_vocab(model_choice, embed_dim, hidden_dim, context_size):
     idx_to_word = data["idx_to_word"]
     vocab = data["vocab"]
 
-    # Ensure <UNK> exists
+    # Ensure <UNK> exists and consistent
     if "<UNK>" not in word_to_idx:
         unk_index = len(word_to_idx)
         word_to_idx["<UNK>"] = unk_index
         idx_to_word[unk_index] = "<UNK>"
-        vocab.append("<UNK>")  # Update vocab size
+        vocab.append("<UNK>")
+
+    # Fix vocab size mismatch (keep 7884)
+    expected_vocab_size = 7884
+    if len(vocab) > expected_vocab_size:
+        if "<UNK>" in vocab:
+            trimmed = [w for w in vocab if w != "<UNK>"]
+            vocab = trimmed[:expected_vocab_size - 1] + ["<UNK>"]
+        else:
+            vocab = vocab[:expected_vocab_size]
+    elif len(vocab) < expected_vocab_size:
+        vocab += [f"<pad{i}>" for i in range(expected_vocab_size - len(vocab))]
 
     # Model paths
     model_paths = {
@@ -33,14 +44,16 @@ def load_model_and_vocab(model_choice, embed_dim, hidden_dim, context_size):
         "Large": os.path.join(folder_path, "holmes_large.pt")
     }
 
-    # Initialize model with correct vocab size
+    # Initialize model
     model = MLPTextGenerator(len(vocab), embed_dim, hidden_dim, context_size)
 
+    # Load weights only for pre-trained models
     if model_choice in model_paths:
         model.load_state_dict(torch.load(model_paths[model_choice], map_location="cpu"))
 
     model.eval()
     return model, word_to_idx, idx_to_word, vocab
+
 
 def predict_next_words(model, input_text, word_to_idx, idx_to_word,
                        k=5, temperature=1.0, context_size=5):
@@ -48,11 +61,9 @@ def predict_next_words(model, input_text, word_to_idx, idx_to_word,
     tokens = input_text.lower().split()
     tokens = tokens[-context_size:]
 
-    # Map unknown words to <UNK>
     unk_index = word_to_idx.get("<UNK>", 0)
     indices = [word_to_idx.get(w, unk_index) for w in tokens]
 
-    # Pad if needed
     if len(indices) < context_size:
         indices = [unk_index] * (context_size - len(indices)) + indices
 
@@ -67,7 +78,6 @@ def predict_next_words(model, input_text, word_to_idx, idx_to_word,
 
         next_word = idx_to_word.get(next_idx, "<UNK>")
         generated.append(next_word)
-
         indices = indices[1:] + [next_idx]
         input_tensor = torch.tensor([indices], dtype=torch.long)
 
@@ -119,4 +129,4 @@ if st.button("Generate"):
     st.success("Generated text:")
     st.write(f"{user_input} {output}")
 
-st.caption("Note: Unknown words are replaced with <UNK>.")
+st.caption("Note: Unknown words are replaced with <UNK>.")  
