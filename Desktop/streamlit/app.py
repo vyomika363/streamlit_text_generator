@@ -118,7 +118,9 @@ model, word_to_idx, idx_to_word, vocab = load_model_and_vocab(
 )
 
 st.subheader("Enter your prompt")
-user_input = st.text_input("Type some text:", value="the adventure of")
+user_input = st.text_input("Type your text:", value="the adventure of")
+if any(w.lower() not in word_to_idx for w in user_input.split()):
+    st.warning("Some words were not in the model's vocabulary and were replaced with <UNK> during generation.")
 k = st.slider("Number of words to generate", 1, 20, 5)
 
 if st.button("Generate"):
