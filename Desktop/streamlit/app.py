@@ -18,9 +18,9 @@ def load_model_and_vocab(model_choice, embed_dim, hidden_dim, context_size):
     vocab = data["vocab"]
 
     model_paths = {
-        "Small": "holmes_small.pt",
-        "Medium": "holmes_medium.pt",
-        "Large": "holmes_large.pt"
+    "Small": os.path.join(os.path.dirname(__file__), "holmes_small.pt"),
+    "Medium": os.path.join(os.path.dirname(__file__), "holmes_medium.pt"),
+    "Large": os.path.join(os.path.dirname(__file__), "holmes_large.pt")
     }
 
     model = MLPTextGenerator(len(vocab), embed_dim, hidden_dim, context_size)
