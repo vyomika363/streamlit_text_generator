@@ -10,7 +10,7 @@ vocab_path = os.path.join(folder_path, "Desktop", "streamlit", "vocab.pkl")
 
 @st.cache_resource
 def load_model_and_vocab(model_choice, embed_dim, hidden_dim, context_size):
-    with open("vocab_path", "rb") as f:
+    with open(vocab_path, "rb") as f:
         data = pickle.load(f)
 
     word_to_idx = data["word_to_idx"]
