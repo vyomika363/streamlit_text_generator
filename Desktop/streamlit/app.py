@@ -21,10 +21,11 @@ def load_model_and_vocab(model_choice, embed_dim, hidden_dim, context_size):
 
     # Ensure <UNK> exists and consistent
     if "<UNK>" not in word_to_idx:
-        unk_index = len(word_to_idx)
+        # Reuse an existing index (like 0) for unknown words
+        unk_index = 0
         word_to_idx["<UNK>"] = unk_index
-        idx_to_word[unk_index] = "<UNK>"
-        vocab.append("<UNK>")
+    else:
+        unk_index = word_to_idx["<UNK>"]
 
     # Fix vocab size mismatch (keep 7884)
     expected_vocab_size = 7884
