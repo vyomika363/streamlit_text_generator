@@ -17,10 +17,16 @@ def load_model_and_vocab(model_choice, embed_dim, hidden_dim, context_size):
     idx_to_word = data["idx_to_word"]
     vocab = data["vocab"]
 
+    # Ensure <UNK> token exists
+    if "<UNK>" not in word_to_idx:
+        unk_index = len(word_to_idx)
+        word_to_idx["<UNK>"] = unk_index
+        idx_to_word[unk_index] = "<UNK>"
+
     model_paths = {
-    "Small": os.path.join(os.path.dirname(__file__), "holmes_small.pt"),
-    "Medium": os.path.join(os.path.dirname(__file__), "holmes_medium.pt"),
-    "Large": os.path.join(os.path.dirname(__file__), "holmes_large.pt")
+        "Small": os.path.join(os.path.dirname(__file__), "holmes_small.pt"),
+        "Medium": os.path.join(os.path.dirname(__file__), "holmes_medium.pt"),
+        "Large": os.path.join(os.path.dirname(__file__), "holmes_large.pt")
     }
 
     model = MLPTextGenerator(len(vocab), embed_dim, hidden_dim, context_size)
@@ -31,16 +37,18 @@ def load_model_and_vocab(model_choice, embed_dim, hidden_dim, context_size):
     model.eval()
     return model, word_to_idx, idx_to_word, vocab
 
+def words_to_indices(words, word_to_idx):
+    unk_idx = word_to_idx.get("<UNK>", 0)
+    return [word_to_idx.get(w, unk_idx) for w in words]
 
 def predict_next_words(model, input_text, word_to_idx, idx_to_word,
                        k=5, temperature=1.0, context_size=5):
-
     tokens = input_text.lower().split()
     tokens = tokens[-context_size:]
 
-    indices = [word_to_idx.get(w, word_to_idx.get("<unk>", 0)) for w in tokens]
+    indices = words_to_indices(tokens, word_to_idx)
     if len(indices) < context_size:
-        indices = [word_to_idx.get("<unk>", 0)] * (context_size - len(indices)) + indices
+        indices = [word_to_idx.get("<UNK>", 0)] * (context_size - len(indices)) + indices
 
     input_tensor = torch.tensor([indices], dtype=torch.long)
 
@@ -51,16 +59,15 @@ def predict_next_words(model, input_text, word_to_idx, idx_to_word,
             probs = F.softmax(logits / temperature, dim=-1)
             next_idx = torch.multinomial(probs[0], 1).item()
 
-        next_word = idx_to_word[next_idx]
+        next_word = idx_to_word.get(next_idx, "<UNK>")
         generated.append(next_word)
         indices = indices[1:] + [next_idx]
         input_tensor = torch.tensor([indices], dtype=torch.long)
 
     return " ".join(generated)
 
-
+# Streamlit UI
 st.title("Sherlock Holmes Text Generator")
-
 st.sidebar.header("Model Settings")
 
 model_choice = st.sidebar.selectbox(
@@ -103,4 +110,4 @@ if st.button("Generate"):
     st.success("Generated text:")
     st.write(f"{user_input} {output}")
 
-st.caption("Note: Unknown words are replaced with <unk>.")
+st.caption("Note: Unknown words are replaced with <UNK>.")
