@@ -6,7 +6,7 @@ from model import MLPTextGenerator
 import os
 
 folder_path = os.path.dirname(__file__)
-vocab_path = os.path.join(folder_path, "vocab.pkl")
+vocab_path = os.path.join(folder_path, "Desktop", "streamlit", "vocab.pkl")
 
 @st.cache_resource
 def load_model_and_vocab(model_choice, embed_dim, hidden_dim, context_size):
